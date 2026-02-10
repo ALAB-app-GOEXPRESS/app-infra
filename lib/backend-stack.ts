@@ -1,5 +1,5 @@
 // infra/lib/backend-stack.ts
-import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, Fn } from "aws-cdk-lib";
 import { SubnetType } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 import { Vpc, SecurityGroup } from "aws-cdk-lib/aws-ec2";
@@ -34,6 +34,8 @@ export class BackendStack extends Stack {
     const appName = props.appName;
 
     const repo = props.repo;
+
+    const dbEndpoint = Fn.importValue("goexpress-app-db-endpoint");
 
     // ★ VPC Connector （BE SG をそのまま利用）
     const subnets = props.vpc.selectSubnets({
@@ -86,6 +88,14 @@ export class BackendStack extends Stack {
               ],
               runtimeEnvironmentSecrets: [
                 { name: "DB_SECRET_JSON", value: props.dbSecret.secretArn },
+                {
+                  name: "DB_USERNAME",
+                  value: `${props.dbSecret.secretArn}:username::`,
+                },
+                {
+                  name: "DB_PASSWORD",
+                  value: `${props.dbSecret.secretArn}:password::`,
+                },
               ],
             },
           },
