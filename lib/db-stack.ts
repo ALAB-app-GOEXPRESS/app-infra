@@ -1,4 +1,10 @@
-import { Stack, StackProps, RemovalPolicy, CfnOutput, Duration } from "aws-cdk-lib";
+import {
+  Stack,
+  StackProps,
+  RemovalPolicy,
+  CfnOutput,
+  Duration,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
 import {
   Vpc,
@@ -24,16 +30,14 @@ export class DbStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    props: StackProps & { appName: string; vpc: Vpc; dbSg: SecurityGroup }
+    props: StackProps & { appName: string; vpc: Vpc; dbSg: SecurityGroup },
   ) {
     super(scope, id, props);
 
     const backupRetentionDaysRaw = this.node.tryGetContext(
-      "DB_BACKUP_RETENTION_DAYS"
+      "DB_BACKUP_RETENTION_DAYS",
     );
-    const backupRetentionDays = Number(
-      backupRetentionDaysRaw ?? 1
-    );
+    const backupRetentionDays = Number(backupRetentionDaysRaw ?? 1);
     const backupRetention = Number.isFinite(backupRetentionDays)
       ? Duration.days(Math.max(1, Math.floor(backupRetentionDays)))
       : Duration.days(1);
@@ -44,7 +48,7 @@ export class DbStack extends Stack {
       securityGroups: [props.dbSg],
       instanceIdentifier: `${props.appName}-postgres`,
       engine: DatabaseInstanceEngine.postgres({
-        version: PostgresEngineVersion.VER_16_3, // 使いたいPostgreSQLのバージョンを指定
+        version: PostgresEngineVersion.VER_16, // 使いたいPostgreSQLのバージョンを指定
       }),
       // Secret Manager にユーザー名・パスワードを保存
       // パスワードはランダムな値が自動生成される(AWSコンソールで確認可能)
