@@ -28,7 +28,7 @@ export class BackendStack extends Stack {
       beSg: SecurityGroup;
       repo: Repository;
       createService?: boolean;
-    }
+    },
   ) {
     super(scope, id, props);
     const appName = props.appName;
@@ -51,8 +51,8 @@ export class BackendStack extends Stack {
     });
     execRole.addManagedPolicy(
       ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AWSAppRunnerServicePolicyForECRAccess"
-      )
+        "service-role/AWSAppRunnerServicePolicyForECRAccess",
+      ),
     );
 
     // ランタイムロール（Secrets参照）
@@ -63,7 +63,7 @@ export class BackendStack extends Stack {
       new PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
         resources: [props.dbSecret.secretArn],
-      })
+      }),
     );
 
     if (props.createService) {
@@ -82,6 +82,7 @@ export class BackendStack extends Stack {
                   value: props.db.dbInstanceEndpointAddress,
                 },
                 { name: "DB_NAME", value: "postgres" },
+                { name: "SPRING_PROFILES_ACTIVE", value: "prod" },
               ],
               runtimeEnvironmentSecrets: [
                 { name: "DB_SECRET_JSON", value: props.dbSecret.secretArn },
