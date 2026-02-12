@@ -17,25 +17,25 @@ export class VpcStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    props: StackProps & { appName: string }
+    props: StackProps & { appName: string },
   ) {
     super(scope, id, props);
 
     this.vpc = new Vpc(this, "Vpc", {
       vpcName: `${props.appName}-vpc`,
-      ipAddresses: IpAddresses.cidr("10.110.0.0/21"), // VPCのCIDRを指定
+      ipAddresses: IpAddresses.cidr("10.111.0.0/24"), // VPCのCIDRを指定
       natGateways: 0,
       subnetConfiguration: [
         // サブネット名は「[サービス名]-private-[数字]」
         {
-          name: "sample-app-private-1",
+          name: "goexpress-app-private-1",
           subnetType: SubnetType.PRIVATE_ISOLATED,
-          cidrMask: 24,
+          cidrMask: 28,
         },
         {
-          name: "sample-app-private-2",
+          name: "goexpress-app-private-2",
           subnetType: SubnetType.PRIVATE_ISOLATED,
-          cidrMask: 24,
+          cidrMask: 28,
         },
       ],
     });

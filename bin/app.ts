@@ -8,7 +8,7 @@ import { FrontendStack } from "../lib/frontend-stack";
 import { SchedulerStack } from "../lib/scheduler-stack";
 
 const app = new App();
-const APP_NAME = app.node.tryGetContext("APP_NAME") || "sample-app"; // プロジェクト名を指定(package.jsonと合わせる)
+const APP_NAME = app.node.tryGetContext("APP_NAME") || "goexpress-app"; // プロジェクト名を指定(package.jsonと合わせる)
 const ENV = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: "ap-northeast-1",
@@ -37,7 +37,6 @@ const be = new BackendStack(app, `${APP_NAME}-be`, {
   env: ENV,
   appName: APP_NAME,
   vpc: vpc.vpc,
-  db: db.db,
   dbSecret: db.secret,
   beSg: vpc.beSg,
   repo: ecr.repo,

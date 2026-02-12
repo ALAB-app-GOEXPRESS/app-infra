@@ -1,4 +1,10 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import {
+  CfnOutput,
+  Duration,
+  RemovalPolicy,
+  Stack,
+  StackProps,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { Repository, TagStatus } from "aws-cdk-lib/aws-ecr";
 
@@ -10,7 +16,7 @@ export class EcrStack extends Stack {
     id: string,
     props: StackProps & {
       appName: string;
-    }
+    },
   ) {
     super(scope, id, props);
 
@@ -30,6 +36,7 @@ export class EcrStack extends Stack {
     this.repo.addLifecycleRule({
       description: "Keep last 30 tagged images",
       tagStatus: TagStatus.TAGGED,
+      tagPrefixList: ["prod-"],
       maxImageCount: 30,
     });
 

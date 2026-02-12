@@ -1,11 +1,10 @@
 // infra/lib/backend-stack.ts
-import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, Fn } from "aws-cdk-lib";
 import { SubnetType } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 import { Vpc, SecurityGroup } from "aws-cdk-lib/aws-ec2";
 import { Repository } from "aws-cdk-lib/aws-ecr";
 import { CfnService, CfnVpcConnector } from "aws-cdk-lib/aws-apprunner";
-import { DatabaseInstance } from "aws-cdk-lib/aws-rds";
 import { ISecret } from "aws-cdk-lib/aws-secretsmanager";
 import {
   Role,
@@ -23,17 +22,18 @@ export class BackendStack extends Stack {
     props: StackProps & {
       appName: string;
       vpc: Vpc;
-      db: DatabaseInstance;
       dbSecret: ISecret;
       beSg: SecurityGroup;
       repo: Repository;
       createService?: boolean;
-    }
+    },
   ) {
     super(scope, id, props);
     const appName = props.appName;
 
     const repo = props.repo;
+
+    const dbEndpoint = Fn.importValue("goexpress-app-db-endpoint");
 
     // ★ VPC Connector （BE SG をそのまま利用）
     const subnets = props.vpc.selectSubnets({
@@ -51,8 +51,8 @@ export class BackendStack extends Stack {
     });
     execRole.addManagedPolicy(
       ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AWSAppRunnerServicePolicyForECRAccess"
-      )
+        "service-role/AWSAppRunnerServicePolicyForECRAccess",
+      ),
     );
 
     // ランタイムロール（Secrets参照）
@@ -63,7 +63,7 @@ export class BackendStack extends Stack {
       new PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
         resources: [props.dbSecret.secretArn],
-      })
+      }),
     );
 
     if (props.createService) {
@@ -79,12 +79,21 @@ export class BackendStack extends Stack {
               runtimeEnvironmentVariables: [
                 {
                   name: "DB_ENDPOINT",
-                  value: props.db.dbInstanceEndpointAddress,
+                  value: dbEndpoint,
                 },
                 { name: "DB_NAME", value: "postgres" },
+                { name: "SPRING_PROFILES_ACTIVE", value: "prod" },
               ],
               runtimeEnvironmentSecrets: [
                 { name: "DB_SECRET_JSON", value: props.dbSecret.secretArn },
+                {
+                  name: "DB_USERNAME",
+                  value: `${props.dbSecret.secretArn}:username::`,
+                },
+                {
+                  name: "DB_PASSWORD",
+                  value: `${props.dbSecret.secretArn}:password::`,
+                },
               ],
             },
           },

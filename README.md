@@ -12,7 +12,7 @@
 
 ## /bin/app.ts
 
-- `"app-name"`部分をサービス名に変更
+- APP_NAMEの`"sample-app"`部分をサービス名に変更
 
 ## /lib/vpc-stack.ts
 
