@@ -15,7 +15,7 @@ export class SchedulerStack extends Stack {
       stopHourJst?: number;
       startHourJst?: number;
       weekdaysOnly?: boolean;
-    }
+    },
   ) {
     super(scope, id, props);
 
@@ -28,7 +28,9 @@ export class SchedulerStack extends Stack {
 
     const dailyCron = (hour: number) => `cron(0 ${hour} * * ? *)`;
     const weekdaysCron = (hour: number) => `cron(0 ${hour} ? * MON-FRI *)`;
-    const startCron = weekdaysOnly ? weekdaysCron(startHour) : dailyCron(startHour);
+    const startCron = weekdaysOnly
+      ? weekdaysCron(startHour)
+      : dailyCron(startHour);
 
     const schedulerRole = new Role(this, "SchedulerRole", {
       assumedBy: new ServicePrincipal("scheduler.amazonaws.com"),
@@ -38,7 +40,7 @@ export class SchedulerStack extends Stack {
       new PolicyStatement({
         actions: ["rds:StopDBInstance", "rds:StartDBInstance"],
         resources: ["*"],
-      })
+      }),
     );
 
     if (props.appRunnerServiceArn) {
@@ -46,7 +48,7 @@ export class SchedulerStack extends Stack {
         new PolicyStatement({
           actions: ["apprunner:PauseService", "apprunner:ResumeService"],
           resources: [props.appRunnerServiceArn],
-        })
+        }),
       );
     }
 
@@ -59,7 +61,7 @@ export class SchedulerStack extends Stack {
         arn: "arn:aws:scheduler:::aws-sdk:rds:stopDBInstance",
         roleArn: schedulerRole.roleArn,
         input: JSON.stringify({
-          DBInstanceIdentifier: props.dbInstanceIdentifier,
+          DbInstanceIdentifier: props.dbInstanceIdentifier,
         }),
       },
     });
@@ -73,7 +75,7 @@ export class SchedulerStack extends Stack {
         arn: "arn:aws:scheduler:::aws-sdk:rds:startDBInstance",
         roleArn: schedulerRole.roleArn,
         input: JSON.stringify({
-          DBInstanceIdentifier: props.dbInstanceIdentifier,
+          DbInstanceIdentifier: props.dbInstanceIdentifier,
         }),
       },
     });
