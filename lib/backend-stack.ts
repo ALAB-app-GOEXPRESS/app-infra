@@ -5,7 +5,6 @@ import { Construct } from "constructs";
 import { Vpc, SecurityGroup } from "aws-cdk-lib/aws-ec2";
 import { Repository } from "aws-cdk-lib/aws-ecr";
 import { CfnService, CfnVpcConnector } from "aws-cdk-lib/aws-apprunner";
-import { DatabaseInstance } from "aws-cdk-lib/aws-rds";
 import { ISecret } from "aws-cdk-lib/aws-secretsmanager";
 import {
   Role,
@@ -23,7 +22,6 @@ export class BackendStack extends Stack {
     props: StackProps & {
       appName: string;
       vpc: Vpc;
-      db: DatabaseInstance;
       dbSecret: ISecret;
       beSg: SecurityGroup;
       repo: Repository;
@@ -81,7 +79,7 @@ export class BackendStack extends Stack {
               runtimeEnvironmentVariables: [
                 {
                   name: "DB_ENDPOINT",
-                  value: props.db.dbInstanceEndpointAddress,
+                  value: dbEndpoint,
                 },
                 { name: "DB_NAME", value: "postgres" },
                 { name: "SPRING_PROFILES_ACTIVE", value: "prod" },

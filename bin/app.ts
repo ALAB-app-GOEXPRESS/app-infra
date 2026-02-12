@@ -37,7 +37,6 @@ const be = new BackendStack(app, `${APP_NAME}-be`, {
   env: ENV,
   appName: APP_NAME,
   vpc: vpc.vpc,
-  db: db.db,
   dbSecret: db.secret,
   beSg: vpc.beSg,
   repo: ecr.repo,
