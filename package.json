@@ -1,9 +1,9 @@
 {
-  "name": "sample-app-infra",
+  "name": "goexpress-app-infra",
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "sample-app": "bin/app.js"
+    "goexpress-app": "bin/app.js"
   },
   "scripts": {
     "build": "tsc",
