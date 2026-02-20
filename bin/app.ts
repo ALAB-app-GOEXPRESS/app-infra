@@ -39,7 +39,6 @@ const be = new BackendStack(app, `${APP_NAME}-be`, {
   vpc: vpc.vpc,
   dbSecret: db.secret,
   beSg: vpc.beSg,
-  repo: ecr.repo,
   createService: CREATE_BE_SERVICE, // ← 追加フラグ
 });
 
@@ -48,8 +47,8 @@ const SCHEDULE_WEEKDAYS_ONLY =
   app.node.tryGetContext("SCHEDULE_WEEKDAYS_ONLY") === "true";
 new SchedulerStack(app, `${APP_NAME}-schedule`, {
   env: ENV,
+  appName: APP_NAME,
   enabled: ENABLE_SCHEDULE,
   weekdaysOnly: SCHEDULE_WEEKDAYS_ONLY,
-  dbInstanceIdentifier: db.db.instanceIdentifier,
   appRunnerServiceArn: be.appRunnerServiceArn,
 });
