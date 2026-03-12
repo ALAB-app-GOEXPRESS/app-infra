@@ -11,6 +11,7 @@ import {
   ServicePrincipal,
   ManagedPolicy,
   PolicyStatement,
+  Effect,
 } from "aws-cdk-lib/aws-iam";
 
 export class BackendStack extends Stack {
@@ -64,6 +65,14 @@ export class BackendStack extends Stack {
         resources: [props.dbSecret.secretArn],
       }),
     );
+    
+    runtimeRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"]
+      })
+    )
 
     if (props.createService) {
       const svc = new CfnService(this, "Service", {
@@ -92,6 +101,10 @@ export class BackendStack extends Stack {
                 {
                   name: "DB_PASSWORD",
                   value: `${props.dbSecret.secretArn}:password::`,
+                },
+                {
+                  name: "SES_MAIL_FROM",
+                  value: "sk2goexpress@gmail.com",
                 },
               ],
             },
