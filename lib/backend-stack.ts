@@ -24,14 +24,13 @@ export class BackendStack extends Stack {
       vpc: Vpc;
       dbSecret: ISecret;
       beSg: SecurityGroup;
-      repo: Repository;
       createService?: boolean;
     },
   ) {
     super(scope, id, props);
     const appName = props.appName;
 
-    const repo = props.repo;
+    const repoUri = Fn.importValue(`${appName}-ecr-repo-uri`);
 
     const dbEndpoint = Fn.importValue("goexpress-app-db-endpoint");
 
@@ -72,7 +71,7 @@ export class BackendStack extends Stack {
         sourceConfiguration: {
           authenticationConfiguration: { accessRoleArn: execRole.roleArn },
           imageRepository: {
-            imageIdentifier: `${repo.repositoryUri}:latest`,
+            imageIdentifier: `${repoUri}:latest`,
             imageRepositoryType: "ECR",
             imageConfiguration: {
               port: "8080",
@@ -121,6 +120,12 @@ export class BackendStack extends Stack {
       this.appRunnerServiceArn = svc.attrServiceArn;
       new CfnOutput(this, "AppRunnerServiceArn", { value: svc.attrServiceArn });
       new CfnOutput(this, "AppRunnerServiceUrl", { value: svc.attrServiceUrl });
+
+      //App Runner の URL からドメイン部分だけ抜き出して Export
+      new CfnOutput(this, "BackendDomain", {
+        value: svc.attrServiceUrl,
+        exportName: `${appName}-backend-domain`,
+      });
     }
   }
 }

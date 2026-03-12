@@ -73,5 +73,10 @@ export class DbStack extends Stack {
       value: this.db.dbInstanceEndpointAddress,
       exportName: "goexpress-app-db-endpoint",
     });
+
+    new CfnOutput(this, "DbInstanceIdentifierExport", {
+      value: this.db.instanceIdentifier,
+      exportName: `${props.appName}-db-instance-identifier`,
+    });
   }
 }

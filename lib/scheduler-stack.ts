@@ -1,4 +1,4 @@
-import { Stack, StackProps } from "aws-cdk-lib";
+import { Fn, Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { CfnSchedule } from "aws-cdk-lib/aws-scheduler";
 import { Role, ServicePrincipal, PolicyStatement } from "aws-cdk-lib/aws-iam";
@@ -8,13 +8,13 @@ export class SchedulerStack extends Stack {
     scope: Construct,
     id: string,
     props: StackProps & {
-      dbInstanceIdentifier: string;
       appRunnerServiceArn?: string;
       enabled?: boolean;
       timeZone?: string;
       stopHourJst?: number;
       startHourJst?: number;
       weekdaysOnly?: boolean;
+      appName: string;
     },
   ) {
     super(scope, id, props);
@@ -31,6 +31,10 @@ export class SchedulerStack extends Stack {
     const startCron = weekdaysOnly
       ? weekdaysCron(startHour)
       : dailyCron(startHour);
+
+    const dbInstanceIdentifier = Fn.importValue(
+      `${props.appName}-db-instance-identifier`,
+    );
 
     const schedulerRole = new Role(this, "SchedulerRole", {
       assumedBy: new ServicePrincipal("scheduler.amazonaws.com"),
@@ -61,7 +65,7 @@ export class SchedulerStack extends Stack {
         arn: "arn:aws:scheduler:::aws-sdk:rds:stopDBInstance",
         roleArn: schedulerRole.roleArn,
         input: JSON.stringify({
-          DbInstanceIdentifier: props.dbInstanceIdentifier,
+          DbInstanceIdentifier: dbInstanceIdentifier,
         }),
       },
     });
@@ -75,7 +79,7 @@ export class SchedulerStack extends Stack {
         arn: "arn:aws:scheduler:::aws-sdk:rds:startDBInstance",
         roleArn: schedulerRole.roleArn,
         input: JSON.stringify({
-          DbInstanceIdentifier: props.dbInstanceIdentifier,
+          DbInstanceIdentifier: dbInstanceIdentifier,
         }),
       },
     });

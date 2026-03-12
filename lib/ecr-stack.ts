@@ -42,5 +42,15 @@ export class EcrStack extends Stack {
 
     new CfnOutput(this, "EcrRepoName", { value: this.repo.repositoryName });
     new CfnOutput(this, "EcrRepoUri", { value: this.repo.repositoryUri });
+
+    new CfnOutput(this, "EcrRepoUriExport", {
+      value: this.repo.repositoryUri,
+      exportName: `${props.appName}-ecr-repo-uri`,
+    });
+
+    new CfnOutput(this, "EcrRepoArnExport", {
+      value: this.repo.repositoryArn,
+      exportName: `${props.appName}-ecr-repo-arn`,
+    });
   }
 }
