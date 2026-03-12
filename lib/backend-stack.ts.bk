@@ -1,15 +1,13 @@
 // infra/lib/backend-stack.ts
 import { Stack, StackProps, CfnOutput, Fn } from "aws-cdk-lib";
 import {
-  SubnetType,
   InterfaceVpcEndpoint,
   InterfaceVpcEndpointService,
   Port,
-  SecurityGroup,
-  Vpc,
+  SubnetType,
 } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
-import { Repository } from "aws-cdk-lib/aws-ecr";
+import { Vpc, SecurityGroup } from "aws-cdk-lib/aws-ec2";
 import { CfnService, CfnVpcConnector } from "aws-cdk-lib/aws-apprunner";
 import { ISecret } from "aws-cdk-lib/aws-secretsmanager";
 import {
@@ -35,46 +33,42 @@ export class BackendStack extends Stack {
     },
   ) {
     super(scope, id, props);
-
     const appName = props.appName;
 
     const repoUri = Fn.importValue(`${appName}-ecr-repo-uri`);
+
     const dbEndpoint = Fn.importValue("goexpress-app-db-endpoint");
 
-    /**
-     * ==========================
-     * ★追加: SES API (HTTPS/443) 用 Interface VPC Endpoint (PrivateLink)
-     * NATなし・egressType=VPC・PRIVATE_ISOLATED でも SES API を呼べるようにする
-     * - SES の API endpoints は 443 を使用 [1](https://docs.aws.amazon.com/ja_jp/cdk/v2/guide/ref-cli-cmd.html)
-     * - Interface Endpoint の SubnetIds は AZごとに1つ [2](https://qiita.com/___nix___/items/2efa66a1a6c26620c446)
-     * ==========================
-     */
-    const region = Stack.of(this).region;
-
-    // Interface Endpoint は「AZごとに1サブネット」制約があるので onePerAz で絞る [2](https://qiita.com/___nix___/items/2efa66a1a6c26620c446)[3](https://docs.aws.amazon.com/apprunner/latest/dg/env-variable.html)
-    const sesEndpointSubnets = props.vpc.selectSubnets({
+    const endpointSubnets = props.vpc.selectSubnets({
       subnetType: SubnetType.PRIVATE_ISOLATED,
       onePerAz: true,
     });
 
-    // SES Endpoint 用SG（Inbound 443 を App Runner の egress SG(=beSg) から許可）
     const sesEndpointSg = new SecurityGroup(this, "SesApiEndpointSg", {
       vpc: props.vpc,
       description: "SecurityGroup for SES API Interface VPC Endpoint (443)",
       allowAllOutbound: true,
     });
 
-    // Endpoint ENI に対して 443 を許可（App Runner 側は beSg を VPC Connector で使っている前提）
+    const appRunnerConnSg = new SecurityGroup(this, "AppRunnerConnectorSg", {
+      vpc: props.vpc,
+      description: "Dedicated SG for App Runner VPC Connector (egress)",
+      allowAllOutbound: true,
+    });
+
+    // App Runner 側の SG（beSg）から Endpoint へ 443 を許可
     sesEndpointSg.addIngressRule(
       props.beSg,
       Port.tcp(443),
-      "Allow 443 from App Runner VPC connector security group",
+      "Allow 443 from AppRunner SG",
     );
 
-    // SES API の PrivateLink サービス名: com.amazonaws.<region>.email（API=443） [1](https://docs.aws.amazon.com/ja_jp/cdk/v2/guide/ref-cli-cmd.html)
+    const region = Stack.of(this).region;
+
+    // SES API の PrivateLink サービス名は com.amazonaws.<region>.email
     new InterfaceVpcEndpoint(this, "SesApiVpcEndpoint", {
       vpc: props.vpc,
-      subnets: { subnets: sesEndpointSubnets.subnets },
+      subnets: { subnets: endpointSubnets.subnets }, // VPC Connector と同じAZ/サブネットに寄せる
       securityGroups: [sesEndpointSg],
       service: new InterfaceVpcEndpointService(
         `com.amazonaws.${region}.email`,
@@ -83,45 +77,43 @@ export class BackendStack extends Stack {
       privateDnsEnabled: true,
     });
 
-    /**
-     * ==========================
-     * 既存: VPC Connector（BE SG をそのまま利用）
-     * ==========================
-     */
+    // ★ VPC Connector （BE SG をそのまま利用）
     const subnets = props.vpc.selectSubnets({
       subnetType: SubnetType.PRIVATE_ISOLATED,
     }).subnetIds;
 
-    const vpcConn = new CfnVpcConnector(this, "VpcConnector", {
-      subnets,
-      securityGroups: [props.beSg.securityGroupId],
-      vpcConnectorName: `${appName}-connector`,
+    const connectorExtraSg = new SecurityGroup(
+      this,
+      "AppRunnerConnectorExtraSg",
+      {
+        vpc: props.vpc,
+        description: "Extra SG to make AppRunner VPC connector config unique",
+        allowAllOutbound: true,
+      },
+    );
+    const vpcConnV2 = new CfnVpcConnector(this, "VpcConnectorV2", {
+      subnets: endpointSubnets.subnetIds,
+      securityGroups: [
+        props.beSg.securityGroupId,
+        connectorExtraSg.securityGroupId,
+      ],
+      vpcConnectorName: `${appName}-connector-v2`,
     });
 
-    /**
-     * ==========================
-     * 既存: App Runner 実行ロール（ECR Pull・Secrets参照）
-     * ==========================
-     */
+    // App Runner 実行ロール（ECR Pull・Secrets参照）
     const execRole = new Role(this, "AppRunnerEcrAccessRole", {
       assumedBy: new ServicePrincipal("build.apprunner.amazonaws.com"),
     });
-
     execRole.addManagedPolicy(
       ManagedPolicy.fromAwsManagedPolicyName(
         "service-role/AWSAppRunnerServicePolicyForECRAccess",
       ),
     );
 
-    /**
-     * ==========================
-     * 既存: ランタイムロール（Secrets参照 + SES送信権限）
-     * ==========================
-     */
+    // ランタイムロール（Secrets参照）
     const runtimeRole = new Role(this, "AppRunnerRuntimeRole", {
       assumedBy: new ServicePrincipal("tasks.apprunner.amazonaws.com"),
     });
-
     runtimeRole.addToPolicy(
       new PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
@@ -137,11 +129,6 @@ export class BackendStack extends Stack {
       }),
     );
 
-    /**
-     * ==========================
-     * 既存: App Runner Service
-     * ==========================
-     */
     if (props.createService) {
       const svc = new CfnService(this, "Service", {
         serviceName: `${appName}-backend`,
@@ -153,12 +140,16 @@ export class BackendStack extends Stack {
             imageConfiguration: {
               port: "8080",
               runtimeEnvironmentVariables: [
-                { name: "DB_ENDPOINT", value: dbEndpoint },
+                {
+                  name: "DB_ENDPOINT",
+                  value: dbEndpoint,
+                },
                 { name: "DB_NAME", value: "postgres" },
                 { name: "SPRING_PROFILES_ACTIVE", value: "prod" },
-
-                // From は secrets ではなく plain text でOK（既存のまま）
-                { name: "SES_MAIL_FROM", value: "sk2goexpress@gmail.com" },
+                {
+                  name: "SES_MAIL_FROM",
+                  value: "sk2goexpress@gmail.com",
+                },
               ],
               runtimeEnvironmentSecrets: [
                 { name: "DB_SECRET_JSON", value: props.dbSecret.secretArn },
@@ -183,7 +174,7 @@ export class BackendStack extends Stack {
         networkConfiguration: {
           egressConfiguration: {
             egressType: "VPC",
-            vpcConnectorArn: vpcConn.attrVpcConnectorArn,
+            vpcConnectorArn: vpcConnV2.attrVpcConnectorArn,
           },
         },
         healthCheckConfiguration: {
@@ -194,10 +185,13 @@ export class BackendStack extends Stack {
           unhealthyThreshold: 5,
         },
       });
-
       this.appRunnerServiceArn = svc.attrServiceArn;
       new CfnOutput(this, "AppRunnerServiceArn", { value: svc.attrServiceArn });
       new CfnOutput(this, "AppRunnerServiceUrl", { value: svc.attrServiceUrl });
+
+      svc.addDependency(vpcConnV2);
+
+      //App Runner の URL からドメイン部分だけ抜き出して Export
       new CfnOutput(this, "BackendDomain", {
         value: svc.attrServiceUrl,
         exportName: `${appName}-backend-domain`,
