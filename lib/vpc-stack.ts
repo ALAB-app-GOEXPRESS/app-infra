@@ -7,6 +7,8 @@ import {
   SecurityGroup,
   CfnSecurityGroupIngress,
   IpAddresses,
+  InterfaceVpcEndpoint,
+  InterfaceVpcEndpointAwsService,
 } from "aws-cdk-lib/aws-ec2";
 
 export class VpcStack extends Stack {
@@ -63,5 +65,45 @@ export class VpcStack extends Stack {
     });
 
     new CfnOutput(this, "VpcId", { value: this.vpc.vpcId });
+
+    // VpcStack constructor の末尾あたりに追加
+
+    // SSM Endpoint 用SG（必要なら VpcStack にpublic readonlyで持たせてもOK）
+    const ssmEndpointSg = new SecurityGroup(this, "SsmEndpointSg", {
+      vpc: this.vpc,
+      description: "SecurityGroup for SSM Interface VPC Endpoints (443)",
+      allowAllOutbound: true,
+    });
+
+    // Interface Endpoint は AZごとに1サブネット制約があるので onePerAz 推奨
+    const ssmEndpointSubnets = this.vpc.selectSubnets({
+      subnetType: SubnetType.PRIVATE_ISOLATED,
+      onePerAz: true,
+    });
+
+    // SSM / SSMMessages / EC2Messages
+    new InterfaceVpcEndpoint(this, "SsmVpcEndpoint", {
+      vpc: this.vpc,
+      subnets: { subnets: ssmEndpointSubnets.subnets },
+      securityGroups: [ssmEndpointSg],
+      service: InterfaceVpcEndpointAwsService.SSM,
+      privateDnsEnabled: true,
+    });
+
+    new InterfaceVpcEndpoint(this, "SsmMessagesVpcEndpoint", {
+      vpc: this.vpc,
+      subnets: { subnets: ssmEndpointSubnets.subnets },
+      securityGroups: [ssmEndpointSg],
+      service: InterfaceVpcEndpointAwsService.SSM_MESSAGES,
+      privateDnsEnabled: true,
+    });
+
+    new InterfaceVpcEndpoint(this, "Ec2MessagesVpcEndpoint", {
+      vpc: this.vpc,
+      subnets: { subnets: ssmEndpointSubnets.subnets },
+      securityGroups: [ssmEndpointSg],
+      service: InterfaceVpcEndpointAwsService.EC2_MESSAGES,
+      privateDnsEnabled: true,
+    });
   }
 }
