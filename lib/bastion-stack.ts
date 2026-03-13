@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, Fn } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import {
   BastionHostLinux,
@@ -7,7 +7,6 @@ import {
   SecurityGroup,
   SubnetType,
   Vpc,
-  ISecurityGroup,
 } from "aws-cdk-lib/aws-ec2";
 import { ManagedPolicy } from "aws-cdk-lib/aws-iam";
 
@@ -22,12 +21,11 @@ export class BastionStack extends Stack {
       appName: string;
       vpc: Vpc;
       dbSg: SecurityGroup;
-      // VpcStackで作ったSSM endpoint SGを渡せるなら渡す（推奨）
-      ssmEndpointSg?: ISecurityGroup;
-      dbEndpoint: string; // Fn.importValue("goexpress-app-db-endpoint") など
     },
   ) {
     super(scope, id, props);
+
+    const dbEndpoint = Fn.importValue("goexpress-app-db-endpoint");
 
     // 踏み台SG（inboundは一切開けない）
     this.bastionSg = new SecurityGroup(this, "BastionSg", {
@@ -35,16 +33,6 @@ export class BastionStack extends Stack {
       description: "SSM-only Bastion SG (no inbound)",
       allowAllOutbound: true, // 最初は簡単に。後で最小化してもOK
     });
-
-    // SSM Endpoint SGが渡ってきたら「endpoint側に443 inbound許可」を追加
-    // ※ Interface Endpoint ENI 宛の通信を許可するため[1](https://zenn.dev/pirosikick/articles/70732e8c751354)
-    if (props.ssmEndpointSg) {
-      (props.ssmEndpointSg as SecurityGroup).addIngressRule(
-        this.bastionSg,
-        Port.tcp(443),
-        "Allow 443 from Bastion to SSM Interface Endpoints",
-      );
-    }
 
     // 踏み台EC2（isolatedに配置）
     this.bastion = new BastionHostLinux(this, "Bastion", {
@@ -78,7 +66,7 @@ export class BastionStack extends Stack {
       value:
         `aws ssm start-session --target ${this.bastion.instanceId} ` +
         `--document-name AWS-StartPortForwardingSessionToRemoteHost ` +
-        `--parameters '{"host":["${props.dbEndpoint}"],"portNumber":["5432"],"localPortNumber":["15432"]}'`,
+        `--parameters '{"host":["${dbEndpoint}"],"portNumber":["5432"],"localPortNumber":["15432"]}'`,
     });
   }
 }

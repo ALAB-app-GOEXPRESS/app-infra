@@ -9,6 +9,8 @@ import {
   IpAddresses,
   InterfaceVpcEndpoint,
   InterfaceVpcEndpointAwsService,
+  Peer,
+  Port,
 } from "aws-cdk-lib/aws-ec2";
 
 export class VpcStack extends Stack {
@@ -80,6 +82,12 @@ export class VpcStack extends Stack {
       subnetType: SubnetType.PRIVATE_ISOLATED,
       onePerAz: true,
     });
+
+    ssmEndpointSg.addIngressRule(
+      Peer.ipv4("10.111.0.0/24"), // VPC CIDR（あなたのVPC定義と一致）
+      Port.tcp(443),
+      "Allow HTTPS from within VPC to SSM endpoints",
+    );
 
     // SSM / SSMMessages / EC2Messages
     new InterfaceVpcEndpoint(this, "SsmVpcEndpoint", {

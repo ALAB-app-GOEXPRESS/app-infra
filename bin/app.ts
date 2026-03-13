@@ -33,7 +33,6 @@ const bastion = new BastionStack(app, `${APP_NAME}-bastion`, {
   appName: APP_NAME,
   vpc: vpc.vpc,
   dbSg: vpc.dbSg,
-  dbEndpoint: db.db.dbInstanceEndpointAddress,
 });
 
 const ecr = new EcrStack(app, `${APP_NAME}-ecr`, {
