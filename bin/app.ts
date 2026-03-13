@@ -6,6 +6,7 @@ import { EcrStack } from "../lib/ecr-stack";
 import { BackendStack } from "../lib/backend-stack";
 import { FrontendStack } from "../lib/frontend-stack";
 import { SchedulerStack } from "../lib/scheduler-stack";
+import { BastionStack } from "../lib/bastion-stack";
 
 const app = new App();
 const APP_NAME = app.node.tryGetContext("APP_NAME") || "goexpress-app"; // プロジェクト名を指定(package.jsonと合わせる)
@@ -25,6 +26,15 @@ const db = new DbStack(app, `${APP_NAME}-db`, {
   dbSg: vpc.dbSg,
 });
 new FrontendStack(app, `${APP_NAME}-fe`, { env: ENV, appName: APP_NAME });
+
+// ★追加（SSM踏み台）
+const bastion = new BastionStack(app, `${APP_NAME}-bastion`, {
+  env: ENV,
+  appName: APP_NAME,
+  vpc: vpc.vpc,
+  dbSg: vpc.dbSg,
+  dbEndpoint: db.db.dbInstanceEndpointAddress,
+});
 
 const ecr = new EcrStack(app, `${APP_NAME}-ecr`, {
   env: ENV,
